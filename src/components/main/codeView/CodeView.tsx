@@ -39,7 +39,7 @@ export default function CodeView() {
 
     editingNodeUidInCodeView,
     isCodeTyping,
-    codeErrors,
+    codeErrors
   } = useAppState();
   const { monacoEditorRef } = useContext(MainContext);
 
@@ -118,6 +118,7 @@ export default function CodeView() {
   }, [validNodeTree, nFocusedItem, activePanel]);
 
   useEffect(() => {
+    if(isCodeTyping) return;
     const monacoEditor = monacoEditorRef.current;
     if (!monacoEditor) return;
 
@@ -169,6 +170,35 @@ export default function CodeView() {
       hightlightFocusedNodeSourceCode();
     }
   }, [nFocusedItem]);
+
+  useEffect(() => {
+    if(isCodeTyping) return;
+    if(nFocusedItem === "") return;
+    const monacoEditor = monacoEditorRef.current;
+    if (!monacoEditor) return;
+    const node = validNodeTree[nFocusedItem];
+    if(!node) return;
+    const sourceCodeLocation = node.data.sourceCodeLocation;
+    if (!sourceCodeLocation) return;
+    // skip typing in code-view
+    if (editingNodeUidInCodeView === nFocusedItem) {
+      focusedItemRef.current = nFocusedItem;
+      dispatch(setEditingNodeUidInCodeView(""));
+      return;
+    }
+    const {
+      startLine: startLineNumber,
+      startCol: startColumn,
+      endCol: endColumn,
+      endLine: endLineNumber,
+    } = sourceCodeLocation;
+    monacoEditor.setSelection({
+      startLineNumber,
+      startColumn,
+      endLineNumber,
+      endColumn,
+    });
+  }, [nodeTree]);
 
   // code select -> selectedUids
   useEffect(() => {

@@ -20,10 +20,11 @@ import { setCodeViewTabSize } from "@_redux/main/codeView";
 import {
   setCurrentFileContent,
   setNeedToSelectCode,
+  focusNodeTreeNode
 } from "@_redux/main/nodeTree";
 import { useAppState } from "@_redux/useAppState";
 
-import { getCodeViewTheme, getLanguageFromExtension } from "../helpers";
+import { getCodeViewTheme, getLanguageFromExtension, getNodeUidByCodeSelection } from "../helpers";
 import { TCodeSelection } from "../types";
 import { useSaveCommand } from "@_pages/main/processor/hooks";
 import {
@@ -34,7 +35,7 @@ import { debounce } from "@_pages/main/helper";
 
 const useEditor = () => {
   const dispatch = useDispatch();
-  const { theme: _theme, autoSave } = useAppState();
+  const { theme: _theme, autoSave, isCodeTyping, nodeTree, validNodeTree, } = useAppState();
   const {
     monacoEditorRef,
     setMonacoEditorRef,
@@ -128,8 +129,10 @@ const useEditor = () => {
       );
 
       editor.onDidChangeCursorPosition((event) => {
-        (event.source === "mouse" || event.source === "keyboard") &&
-          setCodeSelection();
+        if(isCodeTyping) {
+          (event.source === "mouse" || event.source === "keyboard") &&
+            setCodeSelection();
+        }
       });
     },
     [setCodeSelection],
@@ -141,14 +144,15 @@ const useEditor = () => {
   const onChange = useCallback(
     (value: string) => {
       dispatch(setCurrentFileContent(value));
+      const selectedRange:any = monacoEditorRef.current?.getSelection();
       dispatch(
         setNeedToSelectCode(
-          codeSelectionRef.current
+          selectedRange
             ? {
-                startLineNumber: codeSelectionRef.current.startLineNumber,
-                startColumn: codeSelectionRef.current.startColumn,
-                endLineNumber: codeSelectionRef.current.endLineNumber,
-                endColumn: codeSelectionRef.current.endColumn,
+                startLineNumber: selectedRange.startLineNumber,
+                startColumn: selectedRange.startColumn,
+                endLineNumber: selectedRange.endLineNumber,
+                endColumn: selectedRange.endColumn,
               }
             : null,
         ),
@@ -179,9 +183,8 @@ const useEditor = () => {
   const handleOnChange = useCallback(
     (value: string | undefined) => {
       if (value === undefined) return;
-
       dispatch(setIsCodeTyping(true));
-
+      dispatch(focusNodeTreeNode(""));
       if (isCodeEditingView.current) {
         longDebouncedOnChange(value);
         isCodeEditingView.current = false;
