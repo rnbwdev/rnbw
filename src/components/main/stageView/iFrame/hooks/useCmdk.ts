@@ -10,14 +10,17 @@ import { useAppState } from "@_redux/useAppState";
 import { getCommandKey } from "@_services/global";
 import { TCmdkKeyMap } from "@_types/main";
 
-import { editHtmlContent } from "../helpers";
+import { editHtmlContent, getBodyChild } from "../helpers";
 import { setShowActionsPanel, setShowCodeView } from "@_redux/main/processor";
+import { setHoveredNodeUid } from "@_redux/main/nodeTree";
 
 interface IUseCmdkProps {
   iframeRefRef: React.MutableRefObject<HTMLIFrameElement | null>;
   nodeTreeRef: React.MutableRefObject<TNodeTreeData>;
   contentEditableUidRef: React.MutableRefObject<TNodeUid>;
   isEditingRef: React.MutableRefObject<boolean>;
+  hoveredItemRef: React.MutableRefObject<TNodeUid>;
+  selectedItemsRef: React.MutableRefObject<TNodeUid[]>;
 }
 
 export const useCmdk = ({
@@ -25,6 +28,8 @@ export const useCmdk = ({
   nodeTreeRef,
   contentEditableUidRef,
   isEditingRef,
+  hoveredItemRef,
+  selectedItemsRef,
 }: IUseCmdkProps) => {
   const dispatch = useDispatch();
   const { osType, cmdkReferenceData } = useAppState();
@@ -136,5 +141,27 @@ export const useCmdk = ({
     [osType, cmdkReferenceData],
   );
 
-  return { onKeyDown };
+  const onKeyUp = useCallback(
+    (e: KeyboardEvent) => {
+      if (
+        !hoveredItemRef.current ||
+        selectedItemsRef.current.includes(hoveredItemRef.current)
+      )
+        return;
+
+      if (
+        ((osType === "Windows" || osType === "Linux") && e.key == "Control") ||
+        (osType === "Mac" && e.key == "Meta")
+      ) {
+        const targetUid = getBodyChild({
+          uids: [hoveredItemRef.current],
+          nodeTree: nodeTreeRef.current,
+        });
+
+        dispatch(setHoveredNodeUid(targetUid[0]));
+      }
+    },
+    [osType],
+  );
+  return { onKeyDown, onKeyUp };
 };

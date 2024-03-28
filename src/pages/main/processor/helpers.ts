@@ -59,11 +59,14 @@ export const getNodeUidToBeSelectedAtFirst = (validNodeTree: TNodeTreeData) => {
       break;
     }
   }
+  const firstBodyNode = bodyNode?.children.find(
+    (item) => validNodeTree[item].displayName !== "#text",
+  );
 
   return bodyNode === null
     ? uids[0]
     : bodyNode.children.length > 0
-      ? bodyNode.children[0]
+      ? firstBodyNode || bodyNode.children[0]
       : bodyNode.uid;
 };
 export const getNeedToExpandNodeUids = (

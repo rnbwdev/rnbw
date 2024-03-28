@@ -26,35 +26,38 @@ export const IFrame = () => {
     project,
     showActionsPanel,
     showCodeView,
+    nodeTree,
+    validNodeTree,
   } = useAppState();
   const { iframeRefRef, setIframeRefRef } = useContext(MainContext);
   const allPanelsClosedRef = useRef(!showActionsPanel && !showCodeView);
 
   const [iframeRefState, setIframeRefState] =
     useState<HTMLIFrameElement | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [document, setDocument] = useState<any>("");
 
   const contentEditableUidRef = useRef<TNodeUid>("");
   const isEditingRef = useRef(false);
-  const linkTagUidRef = useRef<TNodeUid>("");
 
   // hooks
-  const { nodeTreeRef, focusedItemRef, selectedItemsRef } =
+  const { nodeTreeRef, hoveredItemRef, selectedItemsRef } =
     useSyncNode(iframeRefState);
-  const { onKeyDown } = useCmdk({
+  const { onKeyDown, onKeyUp } = useCmdk({
     iframeRefRef,
     nodeTreeRef,
     contentEditableUidRef,
     isEditingRef,
+    hoveredItemRef,
+    selectedItemsRef,
   });
   const { onMouseEnter, onMouseMove, onMouseLeave, onClick, onDblClick } =
     useMouseEvents({
       iframeRefRef,
       nodeTreeRef,
-      focusedItemRef,
       selectedItemsRef,
       contentEditableUidRef,
       isEditingRef,
-      linkTagUidRef,
     });
 
   useEffect(() => {
@@ -73,7 +76,7 @@ export const IFrame = () => {
         const _document = iframeRefState?.contentWindow?.document;
         const htmlNode = _document?.documentElement;
         const headNode = _document?.head;
-
+        setDocument(_document);
         if (htmlNode && headNode) {
           // enable cmdk
           htmlNode.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -112,7 +115,10 @@ export const IFrame = () => {
             e.preventDefault();
             onDblClick(e);
           });
-
+          htmlNode.addEventListener("keyup", (e: KeyboardEvent) => {
+            e.preventDefault();
+            onKeyUp(e);
+          });
           // disable contextmenu
           _document.addEventListener("contextmenu", (e: MouseEvent) => {
             e.preventDefault();
@@ -120,7 +126,11 @@ export const IFrame = () => {
         }
 
         // mark selected elements on load
-        markSelectedElements(iframeRefState, selectedItemsRef.current);
+        markSelectedElements(
+          iframeRefState,
+          selectedItemsRef.current,
+          nodeTree,
+        );
 
         dispatch(setIframeLoading(false));
         project.context === "local" && dispatch(setLoadingFalse());
@@ -135,6 +145,50 @@ export const IFrame = () => {
   useEffect(() => {
     needToReloadIframe && dispatch(setNeedToReloadIframe(false));
   }, [needToReloadIframe]);
+
+  useEffect(() => {
+    if (iframeRefState && document) {
+      const iframeDocument = document;
+
+      if (iframeDocument) {
+        const wrapTextNodes = (element: HTMLElement) => {
+          const childNodes = element.childNodes;
+
+          for (let i = 0; i < childNodes.length; i++) {
+            const node = childNodes[i];
+
+            if (node && node.nodeType === Node.TEXT_NODE) {
+              if (!node?.nodeValue?.replace(/[\n\s]/g, "").length) continue;
+              const span = iframeDocument.createElement("span");
+              const text = iframeDocument.createTextNode(node.nodeValue || "");
+              const uid = element.getAttribute("data-rnbw-stage-node-id");
+
+              if (!uid) continue;
+              const nodeChildren = validNodeTree[uid]?.children;
+
+              const filterArr = nodeChildren?.filter(
+                (uid) =>
+                  validNodeTree[uid]?.data?.textContent == node.nodeValue,
+              );
+
+              span.appendChild(text);
+              span.setAttribute("rnbw-text-element", "true");
+              span.setAttribute(
+                "data-rnbw-stage-node-id",
+                `${filterArr?.length ? filterArr[0] : i}`,
+              );
+
+              node.parentNode && node.parentNode.replaceChild(span, node);
+            } else if (node && node.nodeType === Node.ELEMENT_NODE) {
+              wrapTextNodes(node as HTMLElement);
+            }
+          }
+        };
+
+        wrapTextNodes(iframeDocument.body);
+      }
+    }
+  }, [iframeRefState, document, needToReloadIframe, validNodeTree]);
 
   return useMemo(() => {
     return (

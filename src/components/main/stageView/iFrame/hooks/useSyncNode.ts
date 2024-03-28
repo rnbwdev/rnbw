@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
 
-
 import { ShortDelay } from "@_constants/main";
 import { StageNodeIdAttr } from "@_node/file/handlers/constants";
 import { TNodeTreeData, TNodeUid } from "@_node/types";
@@ -74,8 +73,8 @@ export const useSyncNode = (iframeRef: HTMLIFrameElement | null) => {
       if (same) return;
     }
 
-    unmarkSelectedElements(iframeRef, selectedItemsRef.current);
-    markSelectedElements(iframeRef, selectedItems);
+    unmarkSelectedElements(iframeRef, selectedItemsRef.current, nodeTree);
+    markSelectedElements(iframeRef, selectedItems, nodeTree);
     selectedItemsRef.current = [...selectedItems];
   }, [selectedItems]);
 

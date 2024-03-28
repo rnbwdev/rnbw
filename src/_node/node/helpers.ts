@@ -92,7 +92,8 @@ export const replaceContent = ({
   codeViewInstanceModel: editor.ITextModel;
 }) => {
   const focusedNode = nodeTree[focusedItem];
-  const { startTag, endTag } = focusedNode.data.sourceCodeLocation;
+  const { startTag, endTag, startLine, endLine, startCol, endCol } =
+    focusedNode.data.sourceCodeLocation;
   if (startTag && endTag) {
     const edit = {
       range: new Range(
@@ -101,6 +102,12 @@ export const replaceContent = ({
         endTag.startLine,
         endTag.startCol,
       ),
+      text: content,
+    };
+    codeViewInstanceModel.applyEdits([edit]);
+  } else if (startLine && endLine && startCol && endCol) {
+    const edit = {
+      range: new Range(startLine, startCol, endLine, endCol),
       text: content,
     };
     codeViewInstanceModel.applyEdits([edit]);

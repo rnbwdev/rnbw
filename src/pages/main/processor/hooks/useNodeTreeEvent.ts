@@ -271,7 +271,7 @@ export const useNodeTreeEvent = () => {
         ),
       );
     } else {
-      markSelectedElements(iframeRefRef.current, [nFocusedItem]);
+      markSelectedElements(iframeRefRef.current, [nFocusedItem], nodeTree);
       const validExpandedItems = nExpandedItems.filter(
         (uid) => _validNodeTree[uid] && _validNodeTree[uid].isEntity === false,
       );
@@ -316,7 +316,7 @@ export const useNodeTreeEvent = () => {
         // remark selected elements on stage-view
         // it is removed through dom-diff
         // this part is for when the selectedNodeUids is not changed cuz of the same code-format
-        markSelectedElements(iframeRefRef.current, _selectedNodeUids);
+        markSelectedElements(iframeRefRef.current, _selectedNodeUids, nodeTree);
       }
     }
 

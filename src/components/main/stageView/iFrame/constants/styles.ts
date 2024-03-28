@@ -10,19 +10,19 @@ html {
 }
 
 /* Common style for hover state on non-text elements */
-[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(p) {
+[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(p) {
   outline: 2px solid var(--color-rnbwdev-rainbow-element-foreground);
   outline-offset: -1px;
 }
 
 /* Specific style for text-type elements when hovered and not selected */
-h1[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]),
-h2[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]),
-h3[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]),
-h4[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]),
-h5[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]),
-h6[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]),
-p[rnbwdev-rnbw-element-hover]:hover:not([rnbwdev-rnbw-element-select]) {
+h1[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]),
+h2[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]),
+h3[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]),
+h4[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]),
+h5[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]),
+h6[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]),
+p[rnbwdev-rnbw-element-hover]:not([rnbwdev-rnbw-element-select]) {
   text-decoration: underline;
   text-decoration-color: var(--color-rnbwdev-rainbow-element-foreground);
   text-decoration-thickness: 2px; /* Increased to 2px when hovered and not selected */

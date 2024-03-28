@@ -15,7 +15,6 @@ import { useDispatch } from "react-redux";
 import { TreeView } from "@_components/common";
 import { TreeViewData } from "@_components/common/treeView/types";
 import { DargItemImage, RootNodeUid } from "@_constants/main";
-import { StageNodeIdAttr } from "@_node/file/handlers/constants";
 import { THtmlNodeData } from "@_node/index";
 import { TNode, TNodeUid } from "@_node/types";
 import {
@@ -255,26 +254,18 @@ const NodeTreeView = () => {
               [props.item],
             );
 
-            const onMouseEnter = useCallback((e: React.MouseEvent) => {
-              const ele = e.target as HTMLElement;
-              let _uid: TNodeUid | null = ele.getAttribute("id");
-              // for the elements which are created by js. (ex: Web Component)
-              let newHoveredElement: HTMLElement = ele;
+            const onMouseEnter = () => {
+              let _uid = props?.item?.data?.uid;
               if (_uid === null || _uid === undefined) return;
-              _uid = _uid?.substring(13, _uid.length);
+              let node = validNodeTree[_uid];
               while (!_uid) {
-                const parentEle = newHoveredElement.parentElement;
-                if (!parentEle) break;
-
-                _uid = parentEle.getAttribute(StageNodeIdAttr);
-                !_uid ? (newHoveredElement = parentEle) : null;
+                _uid = node.parentUid;
+                !_uid ? (node = validNodeTree[_uid]) : null;
               }
-
-              // set hovered item
               if (_uid && _uid !== hoveredNodeUid) {
                 dispatch(setHoveredNodeUid(_uid));
               }
-            }, []);
+            };
 
             const onMouseLeave = useCallback(() => {
               dispatch(setHoveredNodeUid(""));
