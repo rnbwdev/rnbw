@@ -63,3 +63,8 @@ body,
   color: var(--color-secondary-foreground);
   border-radius: 4px;
 }
+
+.uid-decoration {
+  color: black !important;
+  background-color: lightgreen;
+}

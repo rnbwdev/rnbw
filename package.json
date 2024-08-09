@@ -28,6 +28,7 @@
     "buffer": "^6.0.3",
     "classnames": "^2.3.2",
     "cmdk": "^0.1.20",
+    "diff-match-patch": "^1.0.5",
     "file-system-access": "^1.0.4",
     "filer": "^1.4.1",
     "idb-keyval": "^6.2.0",
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.19.6",
+    "@types/diff-match-patch": "^1.0.36",
     "@types/file-saver": "^2.0.5",
     "@types/js-beautify": "^1.14.3",
     "@types/lodash": "^4.14.191",

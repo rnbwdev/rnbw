@@ -29,6 +29,7 @@ import {
   setNeedToSelectCode,
   setNeedToSelectNodeUids,
   setNodeTree,
+  setNodeUidPositions,
   setSelectedNodeUids,
 } from "@_redux/main/nodeTree";
 import { setIframeSrc } from "@_redux/main/designView";
@@ -64,6 +65,7 @@ export const useNodeTreeEvent = () => {
 
     currentFileContent,
     selectedNodeUids,
+    nodeUidPositions,
 
     validNodeTree,
     needToSelectCode,
@@ -75,7 +77,8 @@ export const useNodeTreeEvent = () => {
   } = useAppState();
 
   const { parseHtml } = useElementHelper();
-  const { iframeRefRef, setMaxNodeUidRef } = useContext(MainContext);
+  const { iframeRefRef, maxNodeUidRef, setMaxNodeUidRef } =
+    useContext(MainContext);
 
   const isSelectedNodeUidsChanged = useRef(false);
   const isCurrentFileContentChanged = useRef(false);
@@ -122,8 +125,17 @@ export const useNodeTreeEvent = () => {
         nodeTree,
         selectedNodeUids: selectedNodeUidsAfterActions,
       } = ext === "html"
-        ? await parseHtml(currentFileContent, setMaxNodeUidRef)
-        : { contentInApp: "", nodeTree: {}, selectedNodeUids: [] };
+        ? await parseHtml(
+            currentFileContent,
+            maxNodeUidRef.current,
+            nodeUidPositions,
+            setMaxNodeUidRef,
+          )
+        : {
+            contentInApp: "",
+            nodeTree: {},
+            selectedNodeUids: [],
+          };
 
       fileData.content = currentFileContent;
 

@@ -5,6 +5,7 @@ import { Document } from "parse5/dist/tree-adapters/default";
 import {
   TNode,
   TNodeData,
+  TNodePositionInfo,
   TNodeSourceCodeLocation,
   TNodeTreeData,
   TNodeUid,
@@ -46,4 +47,5 @@ export type THtmlParserResponse = {
   nodeTree: TNodeTreeData;
   htmlDom: Document;
   selectedNodeUids: TNodeUid[];
+  nodeUidPositions?: Map<TNodeUid, TNodePositionInfo> | null;
 };

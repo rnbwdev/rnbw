@@ -39,6 +39,11 @@ export type TNodeSourceCodeLocation = {
   endTag?: Omit<TNodeSourceCodeLocation, "startTag" | "endTag">;
 };
 
+export type TNodePositionInfo = {
+  decorationId?: string | null;
+  location: TNodeSourceCodeLocation;
+};
+
 export type TNodeActionType =
   | "add"
   | "remove"

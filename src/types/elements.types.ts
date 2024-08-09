@@ -1,5 +1,6 @@
 import { eventListenersStatesRefType } from "@src/designView/iFrame/IFrame";
 import { TNode, TNodeUid } from "@_api/index";
+import { editor } from "monaco-editor";
 
 interface Iadd {
   tagName: string;
@@ -27,7 +28,7 @@ interface Icopy {
 }
 interface Ipaste {
   targetNode?: TNode;
-  content?: string;
+  textModel?: editor.ITextModel;
   pasteContent?: string;
   pastePosition?: "before" | "after" | "inside";
   skipUpdate?: boolean;
@@ -44,8 +45,8 @@ interface Igroup {
 }
 interface Iremove {
   uids?: TNodeUid[];
+  textModel?: editor.ITextModel;
   skipUpdate?: boolean;
-  content?: string;
 }
 interface Imove {
   selectedUids: TNodeUid[];

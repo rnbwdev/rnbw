@@ -63,16 +63,19 @@ export const NodePathSplitter = "?";
 export const FileChangeAlertMessage = `Your changes will be lost if you don't save them. Are you sure you want to continue without saving?`;
 
 export const DargItemImage = new Image();
-DargItemImage.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=";
+DargItemImage.src =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=";
 
 export const RainbowAppName = "rnbw";
 export const LogAllow = true;
 
 function MainPage() {
   const dispatch = useDispatch();
-  const { currentFileUid, fileTree, autoSave, cmdkReferenceData } = useAppState();
+  const { currentFileUid, fileTree, autoSave, cmdkReferenceData } =
+    useAppState();
 
-  const { monacoEditorRef, setMonacoEditorRef, iframeRefRef, setIframeRefRef } = useReferneces();
+  const { monacoEditorRef, setMonacoEditorRef, iframeRefRef, setIframeRefRef } =
+    useReferneces();
 
   const { importProject, closeNavigator, reloadCurrentProject } = useHandlers();
   const { onNew, onUndo, onRedo, onClear, onJumpstart } = useCmdk({
@@ -87,7 +90,11 @@ function MainPage() {
   );
   const maxNodeUidRef = React.useRef<TValidNodeUid>(0);
   const setMaxNodeUidRef = (maxNodeUid: TValidNodeUid) => {
-    maxNodeUidRef.current = maxNodeUid;
+    if (typeof maxNodeUid === "number") {
+      if (maxNodeUid > (maxNodeUidRef.current as number)) {
+        maxNodeUidRef.current = maxNodeUid;
+      }
+    }
   };
 
   const contentEditableUidRef = React.useRef<TNodeUid>("");
@@ -248,18 +255,21 @@ function App() {
     }
   }, []);
 
-  return useMemo(() => (
-    <>
-      {nohostReady && (
-        <Router>
-          <Routes>
-            <Route path="/" element={<MainPage />} />
-            <Route path="/:project/*" element={<MainPage />} />
-          </Routes>
-        </Router>
-      )}
-    </>
-  ), [nohostReady]);
+  return useMemo(
+    () => (
+      <>
+        {nohostReady && (
+          <Router>
+            <Routes>
+              <Route path="/" element={<MainPage />} />
+              <Route path="/:project/*" element={<MainPage />} />
+            </Routes>
+          </Router>
+        )}
+      </>
+    ),
+    [nohostReady],
+  );
 }
 
 // configure store
@@ -268,14 +278,14 @@ const persistor = persistStore(store);
 
 // render #root
 const root = ReactDOMClient.createRoot(
-  document.getElementById("root") as HTMLElement
+  document.getElementById("root") as HTMLElement,
 );
 root.render(
   <Provider store={store}>
     <PersistGate loading={null} persistor={persistor}>
       <App />
     </PersistGate>
-  </Provider>
+  </Provider>,
 );
 
 export default App;

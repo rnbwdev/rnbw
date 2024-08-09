@@ -3,24 +3,26 @@ import { Range, editor } from "monaco-editor";
 
 import { PrettyCode, useElementHelper } from "@_services/useElementsHelper";
 import { toast } from "react-toastify";
-
-// helperModel added to update the code in the codeViewInstanceModel
-// once when the action is executed, this improves the History Management
-const helperModel = editor.createModel("", "html");
+import { useContext } from "react";
+import { MainContext } from "@src/_redux/main";
 
 export default function useTurnInto() {
   const rnbw = useRnbw();
-  const { isPastingAllowed, sortUidsDsc, findNodeToSelectAfterAction } =
-    useElementHelper();
+  const { monacoEditorRef } = useContext(MainContext);
+  const {
+    isPastingAllowed,
+    sortUidsDsc,
+    findNodeToSelectAfterAction,
+    setEditorModelValue,
+    getEditorModelWithCurrentCode,
+  } = useElementHelper();
 
   const selectedElements = rnbw.elements.getSelectedElements();
 
   async function turnInto(tagName: string) {
     const sortedUids = sortUidsDsc(selectedElements);
-
-    const codeViewInstanceModel = rnbw.files.getEditorRef().current?.getModel();
+    const codeViewInstanceModel = monacoEditorRef.current?.getModel();
     if (!codeViewInstanceModel) return;
-    helperModel.setValue(codeViewInstanceModel.getValue());
 
     // Checking if a parent component can have a tag as a child
     const { isAllowed } = isPastingAllowed({
@@ -32,6 +34,8 @@ export default function useTurnInto() {
       toast(`Turn into ${tagName} not allowed`, { type: "error" });
       return;
     }
+
+    const helperModel = getEditorModelWithCurrentCode();
 
     for (const uid of sortedUids) {
       const node = rnbw.elements.getElement(uid);
@@ -66,8 +70,8 @@ export default function useTurnInto() {
       };
       helperModel.applyEdits([edit]);
     }
-    const code = helperModel.getValue();
-    codeViewInstanceModel.setValue(code);
+
+    setEditorModelValue(helperModel, codeViewInstanceModel);
 
     await findNodeToSelectAfterAction({
       nodeUids: sortedUids,

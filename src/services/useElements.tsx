@@ -50,6 +50,7 @@ export default function useElements() {
   const { monacoEditorRef } = useContext(MainContext);
   const dispatch = useDispatch();
   const {
+    setEditorModelValue,
     getEditorModelWithCurrentCode,
     checkAllResourcesAvailable,
     copyAndCutNode,
@@ -134,7 +135,6 @@ export default function useElements() {
       };
 
       helperModel.applyEdits([edit]);
-      code = helperModel.getValue();
 
       if (!skipUpdate) {
         findNodeToSelectAfterAction({
@@ -145,11 +145,9 @@ export default function useElements() {
           },
         });
         await dispatch(setIsContentProgrammaticallyChanged(true));
-        codeViewInstanceModel.setValue(code);
+        setEditorModelValue(helperModel, codeViewInstanceModel);
       }
     }
-
-    return { code };
   };
 
   const duplicate = async (params: Iduplicate = {}) => {
@@ -177,7 +175,6 @@ export default function useElements() {
         helperModel.applyEdits([edit]);
       }
     }
-    const code = helperModel.getValue();
     if (!skipUpdate) {
       await findNodeToSelectAfterAction({
         nodeUids: selectedNodeUids,
@@ -186,10 +183,8 @@ export default function useElements() {
         },
       });
       await dispatch(setIsContentProgrammaticallyChanged(true));
-      codeViewInstanceModel.setValue(code);
+      setEditorModelValue(helperModel, codeViewInstanceModel);
     }
-
-    return code;
   };
 
   //Read
@@ -254,9 +249,9 @@ export default function useElements() {
     if (!checkAllResourcesAvailable || !codeViewInstanceModel) return;
 
     const helperModel = getEditorModelWithCurrentCode();
-    helperModel.setValue(codeViewInstanceModel.getValue());
 
-    const { updatedCode, copiedCode, sortedUids } = await copyAndCutNode({
+    const { copiedCode, sortedUids } = await copyAndCutNode({
+      textModel: helperModel,
       sortDsc: true,
     });
 
@@ -266,9 +261,8 @@ export default function useElements() {
       ),
     );
 
-    codeViewInstanceModel.setValue(updatedCode);
+    setEditorModelValue(helperModel, codeViewInstanceModel);
     return {
-      updatedCode,
       copiedCode,
       sortedUids,
     };
@@ -276,7 +270,7 @@ export default function useElements() {
 
   const paste = async (params: Ipaste = {}) => {
     const {
-      content,
+      textModel,
       skipUpdate,
       pastePosition = "after",
       targetNode,
@@ -312,10 +306,7 @@ export default function useElements() {
       return;
     }
 
-    const initialCode = content || codeViewInstanceModel.getValue();
-
-    const helperModel = getEditorModelWithCurrentCode();
-    helperModel.setValue(initialCode);
+    const helperModel = textModel || getEditorModelWithCurrentCode();
 
     let copiedCode =
       pasteContent || (await window.navigator.clipboard.readText());
@@ -350,7 +341,6 @@ export default function useElements() {
     };
     helperModel.applyEdits([edit]);
 
-    code = helperModel.getValue();
     if (!skipUpdate) {
       const stringToHtml = parse5.parseFragment(copiedCode);
 
@@ -369,10 +359,8 @@ export default function useElements() {
           tagNames,
         },
       });
-      codeViewInstanceModel.setValue(code);
+      setEditorModelValue(helperModel, codeViewInstanceModel);
     }
-
-    return code;
   };
 
   const plainPaste = () => {};
@@ -382,7 +370,6 @@ export default function useElements() {
     const { skipUpdate } = params;
 
     const helperModel = getEditorModelWithCurrentCode();
-    helperModel.setValue(codeViewInstanceModel.getValue());
     const sortedUids = sortUidsAsc(selectedItems);
     if (sortedUids.length === 0) return;
 
@@ -401,12 +388,10 @@ export default function useElements() {
     const { startLine, startCol } =
       validNodeTree[sortedUids[0]].data.sourceCodeLocation;
 
-    const updatedCode = await remove({
-      content: helperModel.getValue(),
+    await remove({
+      textModel: helperModel,
       skipUpdate: true,
     });
-    if (!updatedCode) return;
-    helperModel.setValue(updatedCode);
 
     let code = `<div>${copiedCode}</div>`;
     code = await PrettyCode({ code, startCol });
@@ -425,11 +410,9 @@ export default function useElements() {
     });
 
     helperModel.applyEdits([edit]);
-    const finalCode = helperModel.getValue();
     if (!skipUpdate) {
-      codeViewInstanceModel.setValue(finalCode);
+      setEditorModelValue(helperModel, codeViewInstanceModel);
     }
-    return finalCode;
   };
 
   const ungroup = async (params: Iungroup = {}) => {
@@ -437,7 +420,6 @@ export default function useElements() {
 
     const { skipUpdate } = params;
     const helperModel = getEditorModelWithCurrentCode();
-    helperModel.setValue(codeViewInstanceModel.getValue());
 
     const sortedUids = sortUidsAsc(selectedItems);
 
@@ -511,9 +493,8 @@ export default function useElements() {
       }
       helperModel.applyEdits([removeGroupedCodeEdit, addUngroupedCodeEdit]);
     }
-    const code = helperModel.getValue();
     if (!skipUpdate) {
-      codeViewInstanceModel.setValue(code);
+      setEditorModelValue(helperModel, codeViewInstanceModel);
       dispatch(setNeedToSelectNodePaths(allNodePathsToSelect));
     }
   };
@@ -555,11 +536,7 @@ export default function useElements() {
       skipUpdate: true,
     });
 
-    const sortedUids = Array.from([...selectedUids, focusedItem])
-      .filter((uid) => validNodeTree[uid].data.sourceCodeLocation)
-      .sort((a, b) => {
-        return parseInt(b) - parseInt(a);
-      });
+    const sortedUids = sortUidsDsc(Array.from([...selectedUids, focusedItem]));
 
     let focusedNodeIndexInSortedUids = 0;
     for (let i = 0; i < sortedUids.length; i++) {
@@ -573,15 +550,13 @@ export default function useElements() {
           const pastePosition =
             focusedItem === targetNode.uid ? "inside" : "after";
 
-          const updatedCode = await paste({
-            content: helperModel.getValue(),
+          await paste({
+            textModel: helperModel,
             pasteContent: copiedCode,
             pastePosition,
             targetNode: validNodeTree[focusedItem],
             skipUpdate: true,
           });
-          updatedCode && helperModel.setValue(updatedCode);
-
           focusedNodeIndexInSortedUids = i;
         } else {
           const edit = {
@@ -593,7 +568,7 @@ export default function useElements() {
       }
     }
 
-    codeViewInstanceModel.setValue(helperModel.getValue());
+    setEditorModelValue(helperModel, codeViewInstanceModel);
 
     const targetPath = validNodeTree[focusedItem].uniqueNodePath;
     let movedNodePaths = sortedUids
@@ -737,7 +712,6 @@ export default function useElements() {
           "",
         );
 
-      helperModel.setValue(codeViewInstanceModel.getValue());
       const focusedNode = nodeTree[contentEditableUid];
       const { startTag, endTag, startLine, endLine, startCol, endCol } =
         focusedNode.data.sourceCodeLocation;
@@ -759,9 +733,8 @@ export default function useElements() {
         };
         helperModel.applyEdits([edit]);
       }
-      const code = helperModel.getValue();
       await dispatch(setIsContentProgrammaticallyChanged(true));
-      codeViewInstanceModel.setValue(code);
+      setEditorModelValue(helperModel, codeViewInstanceModel);
       if (eventSource === "esc") {
         const uniqueNodePath = focusedNode.uniqueNodePath;
         uniqueNodePath && dispatch(setNeedToSelectNodePaths([uniqueNodePath]));
@@ -776,7 +749,6 @@ export default function useElements() {
     const { settings, skipUpdate } = params;
     const oldSettings = getElementSettings();
     const helperModel = getEditorModelWithCurrentCode();
-    helperModel.setValue(codeViewInstanceModel.getValue());
 
     const focusedNode = validNodeTree[nFocusedItem];
     const attributesString = Object.entries(settings).reduce(
@@ -813,7 +785,6 @@ export default function useElements() {
       text: updatedTag,
     };
     helperModel.applyEdits([edit]);
-    const code = helperModel.getValue();
     if (!skipUpdate) {
       await findNodeToSelectAfterAction({
         nodeUids: [nFocusedItem],
@@ -822,10 +793,10 @@ export default function useElements() {
         },
       });
       await dispatch(setIsContentProgrammaticallyChanged(true));
-      codeViewInstanceModel.setValue(code);
+      setEditorModelValue(helperModel, codeViewInstanceModel);
     }
 
-    return { isSuccess: true, settings, code };
+    return { isSuccess: true, settings };
   };
 
   const undo = () => {
@@ -865,7 +836,7 @@ export default function useElements() {
 
   //Delete
   const remove = async (params: Iremove = {}) => {
-    const { uids, skipUpdate, content } = params;
+    const { uids, skipUpdate, textModel } = params;
     const removalUids = uids || selectedItems;
 
     if (removalUids.length === 0 || !codeViewInstanceModel) return;
@@ -879,10 +850,7 @@ export default function useElements() {
       return;
     }
 
-    const contentToEdit = content || codeViewInstanceModel.getValue();
-
-    const helperModel = getEditorModelWithCurrentCode();
-    helperModel.setValue(contentToEdit);
+    const helperModel = textModel || getEditorModelWithCurrentCode();
 
     const sortedUids = sortUidsDsc(removalUids);
 
@@ -909,9 +877,10 @@ export default function useElements() {
         },
       });
       await dispatch(setIsContentProgrammaticallyChanged(true));
-      codeViewInstanceModel.setValue(code);
+      if (helperModel !== textModel) {
+        setEditorModelValue(helperModel, codeViewInstanceModel);
+      }
     }
-    return code;
   };
   return {
     getElement,

@@ -18,9 +18,12 @@ import {
 } from "@_api/node";
 import {
   DataSequencedUid,
+  getDecorationUid,
+  getUidDecorations,
   PARSING_ERROR_MESSAGES,
   StageNodeIdAttr,
   TNode,
+  TNodePositionInfo,
   TNodeUid,
   TValidNodeUid,
   ValidStageNodeUid,
@@ -32,6 +35,7 @@ import {
   selectNodeTreeNodes,
   setNeedToSelectNodePaths,
   setNeedToSelectNodeUids,
+  setNodeUidPositions,
 } from "@_redux/main/nodeTree";
 import { TCmdkGroupData } from "@_types/main";
 
@@ -114,8 +118,18 @@ export const useElementHelper = () => {
     const codeViewInstanceModel = monacoEditorRef.current?.getModel();
     const helperModel = editor.createModel("", "html");
     codeViewInstanceModel &&
-      helperModel.setValue(codeViewInstanceModel.getValue());
+      setEditorModelValue(codeViewInstanceModel, helperModel);
     return helperModel;
+  }
+  function setEditorModelValue(
+    sourceModel: editor.ITextModel,
+    targetModel: editor.ITextModel,
+  ) {
+    if (sourceModel && targetModel) {
+      const uidDecorations = getUidDecorations(sourceModel);
+      targetModel.setValue(sourceModel.getValue());
+      targetModel.deltaDecorations([], uidDecorations);
+    }
   }
   function checkAllResourcesAvailable() {
     const codeViewInstanceModel = monacoEditorRef.current?.getModel();
@@ -134,7 +148,12 @@ export const useElementHelper = () => {
     return Array.from(uids)
       .filter((uid) => validNodeTree[uid].data.sourceCodeLocation)
       .sort((a, b) => {
-        return parseInt(b) - parseInt(a);
+        const location1 = validNodeTree[a].data.sourceCodeLocation;
+        const location2 = validNodeTree[b].data.sourceCodeLocation;
+        if (location1.startLine !== location2.startLine) {
+          return location2.startLine - location1.startLine;
+        }
+        return location2.startCol - location1.startCol;
       });
   };
 
@@ -142,22 +161,29 @@ export const useElementHelper = () => {
     return Array.from(uids)
       .filter((uid) => validNodeTree[uid].data.sourceCodeLocation)
       .sort((a, b) => {
-        return parseInt(a) - parseInt(b);
+        const location1 = validNodeTree[b].data.sourceCodeLocation;
+        const location2 = validNodeTree[a].data.sourceCodeLocation;
+        if (location1.startLine !== location2.startLine) {
+          return location2.startLine - location1.startLine;
+        }
+        return location2.startCol - location1.startCol;
       });
   };
 
   async function copyAndCutNode({
     selectedUids,
+    textModel,
     pasteToClipboard = true,
     sortDsc = false,
   }: {
     selectedUids?: string[];
+    textModel?: editor.ITextModel;
     pasteToClipboard?: boolean;
     sortDsc?: boolean;
   } = {}) {
     const codeViewInstanceModel = monacoEditorRef.current?.getModel();
     const selected = selectedUids || selectedItems;
-    const helperModel = getEditorModelWithCurrentCode();
+    const helperModel = textModel || getEditorModelWithCurrentCode();
 
     /* We are sorting nodes from the max to the min because this way the nodes of max index 
     are deleted first and they do not affect the nodes with index 
@@ -189,18 +215,27 @@ export const useElementHelper = () => {
     copiedCode = await PrettyCode({ code: copiedCode });
     pasteToClipboard &&
       (await window.navigator.clipboard.writeText(copiedCode));
-    const updatedCode = helperModel.getValue();
+
+    if (helperModel !== textModel && codeViewInstanceModel) {
+      setEditorModelValue(helperModel, codeViewInstanceModel);
+    }
+
     return {
       sortedUids,
       copiedCode,
-      updatedCode,
     };
   }
 
   const parseHtml = async (
     content: string,
+    maxNodeUid: number | "ROOT" | null,
+    currentNodeUiPositions: Map<TNodeUid, TNodePositionInfo>,
     callback?: (validNodeUid: TValidNodeUid) => void,
   ): Promise<THtmlParserResponse> => {
+    const codeViewInstanceModel = monacoEditorRef.current?.getModel();
+    const uidDecorations = getUidDecorations(codeViewInstanceModel);
+    const nodeUidPositions = new Map<TNodeUid, TNodePositionInfo>();
+
     const htmlDom = parse5.parse(content, {
       scriptingEnabled: true,
       sourceCodeLocationInfo: true,
@@ -254,8 +289,8 @@ export const useElementHelper = () => {
         uniqueNodePath: RootNodeUid,
       };
       const seedNodes: THtmlNode[] = [nodeTree[RootNodeUid]];
-      let _uid = 0;
-      let _validUid = 0;
+      let _uid = typeof maxNodeUid === "number" ? maxNodeUid : 0;
+      let _validUid = _uid;
 
       const getHtmlNodeAttribs = (
         uid: TNodeUid,
@@ -377,11 +412,68 @@ export const useElementHelper = () => {
 
         let index = 0;
         node.data.childNodes.map((child: THtmlDomNode) => {
-          const uid = String(++_uid);
+          const isNodeValid = isValidNode(child);
+          let uid = null;
+          let uidIndex = -1;
+
+          if (isNodeValid && child.sourceCodeLocation) {
+            const line = child.sourceCodeLocation.startLine;
+            const col = child.sourceCodeLocation.startCol;
+            const range = new Range(line, col, line, col + 1);
+
+            // Check for existing decoration
+            if (!(didUndo || didRedo)) {
+              uidIndex = uidDecorations?.findIndex(
+                (decoration) =>
+                  decoration && decoration.range.equalsRange(range),
+              );
+            }
+          }
+
+          if (uidIndex > -1) {
+            const decoration = uidDecorations[uidIndex];
+            // Use the UID from the existing decoration
+            uid = getDecorationUid(decoration);
+            nodeUidPositions.set(uid, {
+              decorationId: decoration.id,
+              location: child.sourceCodeLocation,
+            });
+            // Only used once, speed next findIndex up
+            delete uidDecorations[uidIndex];
+          } else {
+            // Check whether there is an existing position info that
+            // does not yet have a decoration (due to undo/redo)
+            if ((didUndo || didRedo) && child.sourceCodeLocation) {
+              const location = child.sourceCodeLocation;
+              for (const [key, value] of currentNodeUiPositions?.entries()) {
+                if (
+                  value.location.startLine === location.startLine &&
+                  value.location.startCol === location.startCol &&
+                  value.location.endLine === location.endLine &&
+                  value.location.endCol === location.endCol
+                ) {
+                  uid = key;
+                  break;
+                }
+              }
+            }
+
+            if (uid === null) {
+              // Generate new UID if no existing decoration found
+              uid = String(++_uid);
+            }
+
+            if (child.sourceCodeLocation) {
+              nodeUidPositions.set(uid, {
+                decorationId: null,
+                location: child.sourceCodeLocation,
+              });
+            }
+          }
 
           let validUid = null;
-          if (isValidNode(child)) {
-            validUid = ++_validUid;
+          if (isNodeValid) {
+            validUid = parseInt(uid);
             index++;
           }
           validUid && callback && callback(validUid);
@@ -412,14 +504,16 @@ export const useElementHelper = () => {
 
     const contentInApp = parse5.serialize(htmlDom);
 
-    !(didRedo || didUndo) &&
-      (await dispatch(setNeedToSelectNodeUids(selectedNodeUids)));
-    if (selectedNodeUids.length > 0) {
-      await dispatch(focusNodeTreeNode(selectedNodeUids[0]));
-      await dispatch(selectNodeTreeNodes(selectedNodeUids));
-    } else {
-      await dispatch(focusNodeTreeNode(selectedItems[0]));
-      await dispatch(selectNodeTreeNodes(selectedItems));
+    if (!(didRedo || didUndo)) {
+      await dispatch(setNodeUidPositions(nodeUidPositions));
+      await dispatch(setNeedToSelectNodeUids(selectedNodeUids));
+      if (selectedNodeUids.length > 0) {
+        await dispatch(focusNodeTreeNode(selectedNodeUids[0]));
+        await dispatch(selectNodeTreeNodes(selectedNodeUids));
+      } else {
+        await dispatch(focusNodeTreeNode(selectedItems[0]));
+        await dispatch(selectNodeTreeNodes(selectedItems));
+      }
     }
 
     return {
@@ -663,6 +757,7 @@ export const useElementHelper = () => {
   };
 
   return {
+    setEditorModelValue,
     getEditorModelWithCurrentCode,
     checkAllResourcesAvailable,
     copyAndCutNode,

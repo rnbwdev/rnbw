@@ -1,6 +1,6 @@
 import undoable from "redux-undo";
 
-import { TNodeUid } from "@_api/types";
+import { TNodePositionInfo, TNodeUid } from "@_api/types";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 import {
@@ -15,6 +15,7 @@ import { TNodeEventReducerState } from "./types";
 const nodeEventReducerInitialState: TNodeEventReducerState = {
   currentFileContent: "",
   selectedNodeUids: [],
+  nodeUidPositions: new Map(),
   currentFileUid: "",
 };
 const nodeEventSlice = createSlice({
@@ -29,6 +30,13 @@ const nodeEventSlice = createSlice({
       const selectedNodeUids = action.payload;
       state.selectedNodeUids = [...selectedNodeUids];
     },
+    setNodeUidPositions(
+      state,
+      action: PayloadAction<Map<TNodeUid, TNodePositionInfo>>,
+    ) {
+      const nodeUidPositions = action.payload;
+      state.nodeUidPositions = nodeUidPositions;
+    },
     setNeedToSelectNodeUids(state, action: PayloadAction<TNodeUid[]>) {
       const needToSelectNodeUids = action.payload;
       state.selectedNodeUids = needToSelectNodeUids;
@@ -42,6 +50,7 @@ const nodeEventSlice = createSlice({
 export const {
   setCurrentFileContent,
   setSelectedNodeUids,
+  setNodeUidPositions,
   setNeedToSelectNodeUids,
   setCurrentFileUid,
 } = nodeEventSlice.actions;
@@ -54,7 +63,10 @@ export const NodeEventReducer = undoable(nodeEventSlice.reducer, {
 
   groupBy: (action, currentState, previousHistory) => {
     if (previousHistory.index) {
-      if (action.type === "nodeEvent/setCurrentFileContent") {
+      if (
+        action.type === "nodeEvent/setCurrentFileContent" ||
+        action.type === "nodeEvent/setNodeUidPositions"
+      ) {
         return `node-action-${previousHistory.index}`;
       } else if (action.type === "nodeEvent/setNeedToSelectNodeUids") {
         return `node-action-${previousHistory.index - 1}`;
@@ -63,7 +75,10 @@ export const NodeEventReducer = undoable(nodeEventSlice.reducer, {
     return null;
   },
   filter: (action, currentState) => {
-    const ignoreActionTypes = ["nodeEvent/setCurrentFileUid"];
+    const ignoreActionTypes = [
+      "nodeEvent/setCurrentFileUid",
+      "nodeEvent/setNodeUidPositions",
+    ];
     if (ignoreActionTypes.includes(action.type)) return false;
     if (currentState.currentFileUid.split(".")[1] !== "html") return false;
     return true;

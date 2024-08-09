@@ -1,28 +1,31 @@
 import useRnbw from "@_services/useRnbw";
 import { Range, editor } from "monaco-editor";
-
-// helperModel added to update the code in the codeViewInstanceModel
-// once when the action is executed, this improves the History Management
-const helperModel = editor.createModel("", "html");
+import { diff_match_patch, Diff } from "diff-match-patch";
 
 import { sortUidsByMaxEndIndex } from "@src/sidebarView/nodeTreeView/helpers";
 import { useAppState } from "@_redux/useAppState";
-import { PrettyCode } from "@_services/useElementsHelper";
+import { PrettyCode, useElementHelper } from "@_services/useElementsHelper";
+import { useContext } from "react";
+import { MainContext } from "@src/_redux/main";
 
 export default function useFormatCode() {
   const { validNodeTree } = useAppState();
+  const { monacoEditorRef } = useContext(MainContext);
+  const { setEditorModelValue, getEditorModelWithCurrentCode } =
+    useElementHelper();
 
   const rnbw = useRnbw();
+
   async function formatCode() {
-    const codeViewInstanceModel = rnbw.files.getEditorRef().current?.getModel();
+    const codeViewInstanceModel = monacoEditorRef.current?.getModel();
     if (!codeViewInstanceModel) return;
 
-    helperModel.setValue(codeViewInstanceModel.getValue());
-
+    const helperModel = getEditorModelWithCurrentCode();
     const selectedElements = rnbw.elements.getSelectedElements();
     const sortedUids = sortUidsByMaxEndIndex(selectedElements, validNodeTree);
+    const dmp = new diff_match_patch();
 
-    const edits = await Promise.all(
+    await Promise.all(
       sortedUids.map(async (uid) => {
         const node = rnbw.elements.getElement(uid);
         if (!node) return null;
@@ -31,20 +34,63 @@ export default function useFormatCode() {
           node.data.sourceCodeLocation;
         const range = new Range(startLine, startCol, endLine, endCol);
         const code = codeViewInstanceModel.getValueInRange(range);
-        const text = await PrettyCode({ code, startCol });
+        const formattedCode = await PrettyCode({ code, startCol });
 
-        return { range, text };
+        // Compute the diff
+        const diffs = dmp.diff_main(code, formattedCode);
+        dmp.diff_cleanupSemantic(diffs);
+
+        // Generate Monaco edits from the diffs
+        let currentPosition = range.getStartPosition();
+
+        diffs.forEach((diff) => {
+          const [operation, text] = diff;
+          if (operation === 0) {
+            // No change
+            currentPosition = helperModel.modifyPosition(
+              currentPosition,
+              text.length,
+            );
+          } else if (operation === -1) {
+            // Delete text
+            const endPosition = helperModel.modifyPosition(
+              currentPosition,
+              text.length,
+            );
+            helperModel.applyEdits([
+              {
+                range: new Range(
+                  currentPosition.lineNumber,
+                  currentPosition.column,
+                  endPosition.lineNumber,
+                  endPosition.column,
+                ),
+                text: "",
+              },
+            ]);
+          } else if (operation === 1) {
+            // Insert text
+            helperModel.applyEdits([
+              {
+                range: new Range(
+                  currentPosition.lineNumber,
+                  currentPosition.column,
+                  currentPosition.lineNumber,
+                  currentPosition.column,
+                ),
+                text,
+              },
+            ]);
+            currentPosition = helperModel.modifyPosition(
+              currentPosition,
+              text.length,
+            );
+          }
+        });
       }),
     );
 
-    edits.forEach((edit) => {
-      if (edit) {
-        helperModel.applyEdits([edit]);
-      }
-    });
-
-    const code = helperModel.getValue();
-    codeViewInstanceModel.setValue(code);
+    setEditorModelValue(helperModel, codeViewInstanceModel);
   }
 
   const config = {

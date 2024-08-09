@@ -43,7 +43,12 @@ export const useAppState = () => {
       },
       nodeEvent: {
         past: nodeEventPast,
-        present: { currentFileContent, selectedNodeUids, currentFileUid },
+        present: {
+          currentFileContent,
+          selectedNodeUids,
+          nodeUidPositions,
+          currentFileUid,
+        },
         future: nodeEventFuture,
       },
       designView: { iframeSrc, iframeLoading, linkToOpen, syncConfigs },
@@ -137,6 +142,7 @@ export const useAppState = () => {
 
     currentFileContent,
     selectedNodeUids,
+    nodeUidPositions,
 
     nodeEventPast,
     nodeEventPastLength,

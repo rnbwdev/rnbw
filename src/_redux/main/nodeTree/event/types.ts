@@ -1,8 +1,9 @@
-import { TNodeUid } from "@_api/types";
+import { TNodePositionInfo, TNodeUid } from "@_api/types";
 
 export type TNodeEventReducerState = {
   currentFileContent: string;
   selectedNodeUids: TNodeUid[];
+  nodeUidPositions: Map<TNodeUid, TNodePositionInfo>;
   currentFileUid: string;
 };
 

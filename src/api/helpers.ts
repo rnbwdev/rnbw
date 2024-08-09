@@ -15,6 +15,7 @@ import {
   TNodeUid,
 } from "./types";
 import { THtmlNodeData } from "./node";
+import { editor } from "monaco-editor";
 
 export const getSubNodeUidsByBfs = (
   uid: TNodeUid,
@@ -234,4 +235,22 @@ export const getNodeDepthExternal = (
   }
 
   return nodeDepth;
+};
+export const isUidDecoration = (decoration: editor.IModelDecoration) => {
+  return decoration.options.className?.startsWith("uid-");
+};
+export const getUidDecorations = (
+  model: editor.ITextModel | null | undefined,
+) => {
+  return model?.getAllDecorations().filter(isUidDecoration) || [];
+};
+export const getDecorationUid = (decoration: editor.IModelDecoration) => {
+  const className = decoration.options.className as string;
+  return className.replace(/\D/g, "");
+};
+export const setDecorationUid = (
+  decoration: editor.IModelDecoration | editor.IModelDeltaDecoration,
+  uid: TNodeUid,
+) => {
+  decoration.options.className = `uid-${uid}`;
 };

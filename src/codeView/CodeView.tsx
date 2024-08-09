@@ -10,7 +10,13 @@ import * as monaco from "monaco-editor";
 import { useDispatch } from "react-redux";
 
 import { RootNodeUid } from "@src/rnbwTSX";
-import { TFileNodeData, TNodeUid } from "@_api/index";
+import {
+  getDecorationUid,
+  isUidDecoration,
+  setDecorationUid,
+  TFileNodeData,
+  TNodeUid,
+} from "@_api/index";
 import { MainContext } from "@_redux/main";
 import { setSelectedNodeUids } from "@_redux/main/nodeTree";
 import { setActivePanel, setShowCodeView } from "@_redux/main/processor";
@@ -30,6 +36,7 @@ export default function CodeView() {
     fileTree,
     currentFileUid,
     currentFileContent,
+    nodeUidPositions,
 
     nodeTree,
     validNodeTree,
@@ -232,6 +239,57 @@ export default function CodeView() {
     !isCurrentFileHtml && dispatch(setShowCodeView(true));
   }, [currentFileUid]);
 
+  // Sync value (note: this has to come before decorations)
+  useEffect(() => {
+    const editorModel = monacoEditorRef.current?.getModel();
+    if (!editorModel) return;
+
+    if (editorModel.getValue() !== currentFileContent) {
+      editorModel.setValue(currentFileContent);
+    }
+  }, [currentFileContent]);
+
+  // Sync decorations to track node positions
+  useEffect(() => {
+    const editorModel = monacoEditorRef.current?.getModel();
+    if (!editorModel) return;
+
+    const oldDecorations: string[] = [];
+    const newDecorations: monaco.editor.IModelDeltaDecoration[] = [];
+    const allDecorations = editorModel.getAllDecorations();
+    const stickiness = monaco.editor.TrackedRangeStickiness;
+    nodeUidPositions.forEach((position, uid) => {
+      // Check if the editor has an existing decoration
+      const id = position.decorationId;
+      if (!(id && editorModel.getDecorationOptions(id))) {
+        // If not, one needs to be created
+        const { startLine, startCol } = position.location;
+        const newDecoration: monaco.editor.IModelDeltaDecoration = {
+          range: new monaco.Range(startLine, startCol, startLine, startCol + 1),
+          // This is important to ensure it tracks properly
+          options: { stickiness: stickiness.NeverGrowsWhenTypingAtEdges },
+        };
+        // These are useful for debug purposes but not for production
+        // newDecoration.options.hoverMessage = { value: uid };
+        // newDecoration.options.inlineClassName = "uid-decoration";
+        setDecorationUid(newDecoration, uid);
+        newDecorations.push(newDecoration);
+      }
+    });
+    allDecorations.forEach((decoration) => {
+      // Check if this decoration is required
+      if (isUidDecoration(decoration)) {
+        const uid = getDecorationUid(decoration);
+        if (!nodeUidPositions.has(uid)) {
+          // If not, it can be deleted
+          oldDecorations.push(decoration.id);
+        }
+      }
+    });
+    // oldDecorations are removed, neDecorations are added
+    editorModel.deltaDecorations(oldDecorations, newDecorations);
+  }, [nodeUidPositions]);
+
   return useMemo(() => {
     return (
       <>
@@ -250,11 +308,11 @@ export default function CodeView() {
             overflow: "hidden",
             ...(codeErrors
               ? {
-                outlineWidth: "1px",
-                outlineStyle: "solid",
-                outlineOffset: "-1px",
-                outlineColor: "var(--color-negative)",
-              }
+                  outlineWidth: "1px",
+                  outlineStyle: "solid",
+                  outlineOffset: "-1px",
+                  outlineColor: "var(--color-negative)",
+                }
               : {}),
             transition: "0.3s all",
             borderLeft: 0,
@@ -267,7 +325,6 @@ export default function CodeView() {
             theme={theme}
             language={language}
             defaultValue={""}
-            value={currentFileContent}
             onChange={(value) => handleOnChange(value, currentFileUid)}
             loading={""}
             options={
